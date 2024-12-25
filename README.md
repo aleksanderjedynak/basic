@@ -30,3 +30,6 @@ lub jak chcesz aby pytan
 ````bash
   npm install -g create-vite
 ````
+
+Uwaga podczas konfiruracji mozna robic deploya ktory jest wypychany do repo oraz kodu pisanego lokalnie :D 
+Taka opcja moze sie przydac w perwnych okolicznosciach.
