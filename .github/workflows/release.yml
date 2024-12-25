@@ -5,12 +5,18 @@ on:
     branches:
       - main
 
+# Uprawnienia do zapisu w repo, potrzebne przy pushu:
+permissions:
+  contents: write
+
 jobs:
   bump-version:
     runs-on: ubuntu-latest
     steps:
       - name: Check out code
         uses: actions/checkout@v3
+        with:
+          persist-credentials: true  # Pozostaje zalogowany w Gicie dla kolejnych kroków
 
       - name: Setup Node
         uses: actions/setup-node@v3
@@ -20,12 +26,17 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      # 1. Ustaw tożsamość Git
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      # 2. Dopiero teraz bump wersji
       - name: Bump version
         run: |
           npm version patch -m "chore(release): bump version to %s"
 
+      # 3. Push z commitami i tagami
       - name: Push changes
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git push origin main --follow-tags
+        run: git push origin main --follow-tags
