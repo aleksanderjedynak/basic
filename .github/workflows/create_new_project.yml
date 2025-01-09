@@ -61,11 +61,12 @@ jobs:
           cd "$REPO_NAME"
           rm -rf .git
           git init
-#          resetuje wersje w package.json
           if [ -f package.json ]; then
             jq '.version = "0.0.0"' package.json > temp.json && mv temp.json package.json
+          fi
           git add .
           git commit -m "Initial commit from basic repository by ${{ github.actor }}"
+
 
       - name: Tworzenie repozytorium na GitHub
         env:
