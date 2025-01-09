@@ -38,30 +38,30 @@ jobs:
             exit 1
           fi
 
-      - name: Test uprawnień do tworzenia repozytoriów
-        env:
-          GITHUB_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
-        run: |
-          response=$(curl -s -o response.json -w "%{http_code}" \
-            -H "Authorization: token $GITHUB_TOKEN" \
-            -d '{"name":"test-repo"}' \
-            https://api.github.com/user/repos)
-          if [ "$response" -ne 201 ]; then
-            echo "Error: Token nie ma uprawnień do tworzenia repozytoriów. Szczegóły:"
-            echo "Status odpowiedzi: $response"
-            echo "Szczegóły błędu:"
-            cat response.json
-            exit 1
-          else
-            echo "Token ma uprawnienia do tworzenia repozytoriów."
-          fi
-
-      - name: Usuwanie testowego repozytorium (jeśli istnieje)
-        env:
-          GITHUB_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
-        run: |
-          curl -s -X DELETE -H "Authorization: token $GITHUB_TOKEN" \
-            https://api.github.com/repos/${{ github.actor }}/test-repo || echo "Testowe repozytorium nie istnieje."
+#      - name: Test uprawnień do tworzenia repozytoriów
+#        env:
+#          GITHUB_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+#        run: |
+#          response=$(curl -s -o response.json -w "%{http_code}" \
+#            -H "Authorization: token $GITHUB_TOKEN" \
+#            -d '{"name":"test-repo"}' \
+#            https://api.github.com/user/repos)
+#          if [ "$response" -ne 201 ]; then
+#            echo "Error: Token nie ma uprawnień do tworzenia repozytoriów. Szczegóły:"
+#            echo "Status odpowiedzi: $response"
+#            echo "Szczegóły błędu:"
+#            cat response.json
+#            exit 1
+#          else
+#            echo "Token ma uprawnienia do tworzenia repozytoriów."
+#          fi
+#
+#      - name: Usuwanie testowego repozytorium (jeśli istnieje)
+#        env:
+#          GITHUB_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+#        run: |
+#          curl -s -X DELETE -H "Authorization: token $GITHUB_TOKEN" \
+#            https://api.github.com/repos/${{ github.actor }}/test-repo || echo "Testowe repozytorium nie istnieje."
 
       - name: Konfiguracja uwierzytelnienia Gita
         run: |
