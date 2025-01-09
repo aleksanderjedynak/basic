@@ -26,21 +26,21 @@ jobs:
             exit 1
           fi
 
-      - name: Sprawdzenie uprawnień GITHUB_TOKEN
+      - name: Sprawdzenie uprawnień PERSONAL_ACCESS_TOKEN
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
         run: |
           response=$(curl -o /dev/null -s -w "%{http_code}" \
             -H "Authorization: token $GITHUB_TOKEN" \
             https://api.github.com/)
           if [ "$response" -ne 200 ]; then
-            echo "Error: Nie można uwierzytelnić za pomocą GITHUB_TOKEN."
+            echo "Error: Nie można uwierzytelnić za pomocą PERSONAL_ACCESS_TOKEN."
             exit 1
           fi
 
       - name: Test uprawnień do tworzenia repozytoriów
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
         run: |
           response=$(curl -s -o response.json -w "%{http_code}" \
             -H "Authorization: token $GITHUB_TOKEN" \
@@ -48,6 +48,8 @@ jobs:
             https://api.github.com/user/repos)
           if [ "$response" -ne 201 ]; then
             echo "Error: Token nie ma uprawnień do tworzenia repozytoriów. Szczegóły:"
+            echo "Status odpowiedzi: $response"
+            echo "Szczegóły błędu:"
             cat response.json
             exit 1
           else
@@ -56,14 +58,14 @@ jobs:
 
       - name: Usuwanie testowego repozytorium (jeśli istnieje)
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
         run: |
           curl -s -X DELETE -H "Authorization: token $GITHUB_TOKEN" \
             https://api.github.com/repos/${{ github.actor }}/test-repo || echo "Testowe repozytorium nie istnieje."
 
       - name: Konfiguracja uwierzytelnienia Gita
         run: |
-          git config --global url."https://${{ secrets.GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
+          git config --global url."https://${{ secrets.PERSONAL_ACCESS_TOKEN }}@github.com/".insteadOf "https://github.com/"
 
       - name: Walidacja nazwy repozytorium
         run: |
@@ -89,18 +91,23 @@ jobs:
 
       - name: Tworzenie repozytorium na GitHub
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+          REPO_NAME: ${{ github.event.inputs.repo_name }}
         run: |
-          REPO_NAME="${{ github.event.inputs.repo_name }}"
           response=$(curl -s -o response.json -w "%{http_code}" \
             -H "Authorization: token $GITHUB_TOKEN" \
             -d "{\"name\":\"$REPO_NAME\"}" \
             https://api.github.com/user/repos)
           if [ "$response" -ne 201 ]; then
             echo "Error: Nie udało się utworzyć repozytorium na GitHub. Szczegóły:"
+            echo "Status odpowiedzi: $response"
+            echo "Szczegóły błędu:"
             cat response.json
             exit 1
+          else
+            echo "Repozytorium '$REPO_NAME' zostało pomyślnie utworzone."
           fi
+
 
       - name: Push do nowego repozytorium
         run: |
