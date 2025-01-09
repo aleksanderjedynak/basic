@@ -18,6 +18,53 @@ jobs:
           git config --global user.name "${{ github.actor }}"
           git config --global user.email "${{ github.actor }}@users.noreply.github.com"
 
+      - name: Weryfikacja użytkownika
+        run: |
+          ALLOWED_USER="aleksanderjedynak"
+          if [ "${{ github.actor }}" != "$ALLOWED_USER" ]; then
+            echo "Error: Workflow może być uruchamiany tylko przez $ALLOWED_USER."
+            exit 1
+          fi
+
+      - name: Sprawdzenie uprawnień GITHUB_TOKEN
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          response=$(curl -o /dev/null -s -w "%{http_code}" \
+            -H "Authorization: token $GITHUB_TOKEN" \
+            https://api.github.com/)
+          if [ "$response" -ne 200 ]; then
+            echo "Error: Nie można uwierzytelnić za pomocą GITHUB_TOKEN."
+            exit 1
+          fi
+
+      - name: Test uprawnień do tworzenia repozytoriów
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          response=$(curl -s -o response.json -w "%{http_code}" \
+            -H "Authorization: token $GITHUB_TOKEN" \
+            -d '{"name":"test-repo"}' \
+            https://api.github.com/user/repos)
+          if [ "$response" -ne 201 ]; then
+            echo "Error: Token nie ma uprawnień do tworzenia repozytoriów. Szczegóły:"
+            cat response.json
+            exit 1
+          else
+            echo "Token ma uprawnienia do tworzenia repozytoriów."
+          fi
+
+      - name: Usuwanie testowego repozytorium (jeśli istnieje)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          curl -s -X DELETE -H "Authorization: token $GITHUB_TOKEN" \
+            https://api.github.com/repos/${{ github.actor }}/test-repo || echo "Testowe repozytorium nie istnieje."
+
+      - name: Konfiguracja uwierzytelnienia Gita
+        run: |
+          git config --global url."https://${{ secrets.GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
+
       - name: Walidacja nazwy repozytorium
         run: |
           REPO_NAME="${{ github.event.inputs.repo_name }}"
@@ -27,24 +74,38 @@ jobs:
           fi
           echo "Nazwa repozytorium '$REPO_NAME' jest poprawna."
 
-      - name: Klonowanie bazowego repo
+      - name: Klonowanie bazowego repozytorium
         run: |
-          git clone https://github.com/${{ github.actor }}/basic.git ${{ github.event.inputs.repo_name }}
-          cd ${{ github.event.inputs.repo_name }}
+          REPO_NAME="${{ github.event.inputs.repo_name }}"
+          git clone https://github.com/${{ github.actor }}/basic.git "$REPO_NAME" || {
+            echo "Error: Nie udało się sklonować bazowego repozytorium."
+            exit 1
+          }
+          cd "$REPO_NAME"
           rm -rf .git
           git init
           git add .
-          git commit -m "Initial commit from basic repository by Aleksander Jedynak"
+          git commit -m "Initial commit from basic repository by ${{ github.actor }}"
 
       - name: Tworzenie repozytorium na GitHub
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          curl -u ${{ github.actor }}:$GITHUB_TOKEN https://api.github.com/user/repos -d "{\"name\":\"${{ github.event.inputs.repo_name }}\"}"
+          REPO_NAME="${{ github.event.inputs.repo_name }}"
+          response=$(curl -s -o response.json -w "%{http_code}" \
+            -H "Authorization: token $GITHUB_TOKEN" \
+            -d "{\"name\":\"$REPO_NAME\"}" \
+            https://api.github.com/user/repos)
+          if [ "$response" -ne 201 ]; then
+            echo "Error: Nie udało się utworzyć repozytorium na GitHub. Szczegóły:"
+            cat response.json
+            exit 1
+          fi
 
       - name: Push do nowego repozytorium
         run: |
-          cd ${{ github.event.inputs.repo_name }}
-          git remote add origin https://github.com/${{ github.actor }}/${{ github.event.inputs.repo_name }}.git
+          REPO_NAME="${{ github.event.inputs.repo_name }}"
+          cd "$REPO_NAME"
+          git remote add origin https://github.com/${{ github.actor }}/"$REPO_NAME".git
           git branch -M main
           git push -u origin main
