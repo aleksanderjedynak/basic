@@ -59,6 +59,9 @@ Taka opcja moze sie przydac w perwnych okolicznosciach.
 ```
 8. Masz setup projektu i mozesz sobie dalej pracowac :) 
 
+# Plany na rozbudowe:
+1. Dodanie testow
+
 
 # Testowanie lokalnie 
 
