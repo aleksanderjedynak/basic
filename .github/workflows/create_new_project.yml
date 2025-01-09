@@ -83,6 +83,18 @@ jobs:
             echo "Repozytorium '$REPO_NAME' zostało pomyślnie utworzone."
           fi
 
+      - name: Ustawienie wersji na 0.0.0
+        run: |
+          REPO_NAME="${{ github.event.inputs.repo_name }}"
+          cd "$REPO_NAME"
+          if [ -f package.json ]; then
+            jq '.version = "0.0.0"' package.json > temp.json && mv temp.json package.json
+            git add package.json
+            git commit -m "Set version to 0.0.0"
+          else
+            echo "Error: package.json nie znaleziono. Upewnij się, że plik istnieje w repozytorium bazowym."
+            exit 1
+          fi
 
       - name: Push do nowego repozytorium
         run: |
