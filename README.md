@@ -40,3 +40,21 @@ lub jak chcesz aby pytan
 
 Uwaga podczas konfiruracji mozna robic deploya ktory jest wypychany do repo oraz kodu pisanego lokalnie :D
 Taka opcja moze sie przydac w perwnych okolicznosciach.
+
+
+
+## Setup nowego projektu na podstawie tego repozytorium
+1. Na stronie tego repo
+2. https://github.com/aleksanderjedynak/basic/actions/workflows/create_new_project.yml
+3. Wybierz "Run workflow" i podaj nazwe
+4. Repo jest zrobione
+5. Teraz poberz repo 
+6. odpal w repo
+```bash
+  vercel login
+```
+7. potem to
+```bash
+  vercel deploy --prod --yes
+```
+8. Masz setup projektu i mozesz sobie dalej pracowac :) 
