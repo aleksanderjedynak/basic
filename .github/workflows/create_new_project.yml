@@ -59,14 +59,19 @@ jobs:
             exit 1
           }
           cd "$REPO_NAME"
+
+          # Usuń stare repozytorium Git
           rm -rf .git
           git init
+
+          # Ustawienie wersji na 0.0.0 w package.json (jeśli istnieje)
           if [ -f package.json ]; then
             jq '.version = "0.0.0"' package.json > temp.json && mv temp.json package.json
           fi
-          git add .
-          git commit -m "Initial commit from basic repository by ${{ github.actor }}"
 
+          # Dodanie wszystkich zmian do repozytorium
+          git add .
+          git commit -m "Initial commit with version 0.0.0 from basic repository by ${{ github.actor }}"
 
       - name: Tworzenie repozytorium na GitHub
         env:
