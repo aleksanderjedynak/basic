@@ -62,6 +62,7 @@ jobs:
 
           # Usuń stare repozytorium Git
           rm -rf .git
+          rm -rf README.md
           git init
 
           # Ustawienie wersji na 0.0.0 w package.json (jeśli istnieje)
