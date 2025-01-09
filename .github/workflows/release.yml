@@ -13,30 +13,32 @@ jobs:
   bump-version:
     runs-on: ubuntu-latest
     steps:
-      - name: Check out code
+      - name: Pobranie kodu
         uses: actions/checkout@v3
         with:
           persist-credentials: true  # Pozostaje zalogowany w Gicie dla kolejnych kroków
 
-      - name: Setup Node
+      - name: Konfiguracja Node.js
         uses: actions/setup-node@v3
         with:
           node-version: 18
 
-      - name: Install dependencies
+      - name: Instalowanie zależności
         run: npm install
 
-      # 1. Ustaw tożsamość Git
-      - name: Configure Git
+      - name: Konfiguracja Gita
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      # 2. Dopiero teraz bump wersji
-      - name: Bump version
+      - name: Commitowanie niezacommitowanych zmian
         run: |
-          npm version patch -m "chore(release): bump version to %s"
+          git add .
+          git commit -m "chore: commit zmian" || echo "Brak zmian do commitowania"
 
-      # 3. Push z commitami i tagami
-      - name: Push changes
+      - name: Podbijanie wersji
+        run: |
+          npm version patch -m "chore(release): podbicie wersji do %s"
+
+      - name: Wypchnięcie zmian
         run: git push origin main --follow-tags
