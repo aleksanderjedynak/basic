@@ -1,0 +1,45 @@
+name: Create New Project
+
+on:
+  workflow_dispatch:
+    inputs:
+      repo_name:
+        description: "Nazwa nowego repozytorium"
+        required: true # Wymaga wprowadzenia nazwy
+        default: "my-new-repo" # Domyślna nazwa repozytorium (opcjonalne)
+
+jobs:
+  create-repo:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Walidacja nazwy repozytorium
+        run: |
+          REPO_NAME="${{ github.event.inputs.repo_name }}"
+          if ! [[ "$REPO_NAME" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+            echo "Error: Nazwa repozytorium może zawierać tylko litery, cyfry, myślniki i podkreślenia."
+            exit 1
+          fi
+          echo "Nazwa repozytorium '$REPO_NAME' jest poprawna."
+
+      - name: Klonowanie bazowego repo
+        run: |
+          git clone https://github.com/${{ github.actor }}/basic.git ${{ github.event.inputs.repo_name }}
+          cd ${{ github.event.inputs.repo_name }}
+          rm -rf .git
+          git init
+          git add .
+          git commit -m "Initial commit from basic repository by Aleksander Jedynak"
+
+      - name: Tworzenie repozytorium na GitHub
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          curl -u ${{ github.actor }}:$GITHUB_TOKEN https://api.github.com/user/repos -d "{\"name\":\"${{ github.event.inputs.repo_name }}\"}"
+
+      - name: Push do nowego repozytorium
+        run: |
+          cd ${{ github.event.inputs.repo_name }}
+          git remote add origin https://github.com/${{ github.actor }}/${{ github.event.inputs.repo_name }}.git
+          git branch -M main
+          git push -u origin main
