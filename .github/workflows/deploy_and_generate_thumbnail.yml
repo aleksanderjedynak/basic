@@ -1,4 +1,4 @@
-name: Wdrożenie projektu i generowanie miniatury
+name: Deploy to Vercel and Generate Thumbnail
 
 on:
   repository_dispatch:
@@ -18,56 +18,26 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
+      - name: Debugowanie sekretów
+        run: |
+          echo "VERCEL_TOKEN: ${VERCEL_TOKEN:+OK}"
+          echo "PAGESPEED_API_KEY: ${PAGESPEED_API_KEY:+OK}"
+          echo "PERSONAL_ACCESS_TOKEN: ${PERSONAL_ACCESS_TOKEN:+OK}"
+
       - name: Instalacja Node.js
         uses: actions/setup-node@v3
         with:
           node-version: '18'
 
-      - name: Debugowanie zmiennych środowiskowych
-        run: |
-          if [[ -z "$VERCEL_TOKEN" ]]; then
-            echo "VERCEL_TOKEN nie jest ustawiony."
-            exit 1
-          else
-            echo "VERCEL_TOKEN istnieje: ${VERCEL_TOKEN:0:5}****** (ukryty dla bezpieczeństwa)"
-          fi
-
-      - name: Sprawdzenie wersji Node.js i npm
-        run: |
-          echo "Wersja Node.js:"
-          node --version
-          echo "Wersja npm:"
-          npm --version
-
       - name: Instalacja CLI Vercel
         run: |
-          echo "Instalacja CLI Vercel..."
-          npm install -g vercel || { echo "Błąd podczas instalacji CLI Vercel"; exit 1; }
-
-      - name: Opóźnienie przed wdrożeniem
-        run: |
-          echo "Oczekiwanie 1 minuty na stabilizację środowiska..."
-          sleep 60
+          npm install -g vercel
 
       - name: Wdrożenie na Vercel
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
-          echo "Rozpoczynanie wdrażania na Vercel..."
-          vercel deploy --prod --yes --token $VERCEL_TOKEN || { echo "Błąd podczas wdrażania projektu na Vercel"; exit 1; }
-
-  generate-thumbnail:
-    needs: deploy-to-vercel
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Pobranie kodu źródłowego
-        uses: actions/checkout@v3
-
-      - name: Konfiguracja Git
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          vercel deploy --prod --yes --token $VERCEL_TOKEN
 
       - name: Generowanie miniatury
         env:
@@ -75,23 +45,13 @@ jobs:
         run: |
           deployUrl="https://${{ github.repository }}.vercel.app"
           apiUrl="https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=$deployUrl&key=$PAGESPEED_API_KEY"
-
-          echo "Rozpoczynanie pobierania miniatury dla $deployUrl..."
-          thumbnail=$(curl -s $apiUrl | jq -r '.lighthouseResult.audits["final-screenshot"].details.data') || { echo "Błąd podczas pobierania miniatury"; exit 1; }
-          
-          if [[ $thumbnail != null ]]; then
-            echo "$thumbnail" | base64 -d > "thumbnail.png" || { echo "Błąd podczas zapisywania miniatury"; exit 1; }
-            echo "Miniatura została pomyślnie wygenerowana."
-          else
-            echo "Nie udało się wygenerować miniatury dla $deployUrl."
-            exit 1
-          fi
+          thumbnail=$(curl -s $apiUrl | jq -r '.lighthouseResult.audits["final-screenshot"].details.data')
+          echo "$thumbnail" | base64 -d > thumbnail.png
 
       - name: Commit i push miniatury
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "Dodawanie miniatury do repozytorium..."
-          git add thumbnail.png || { echo "Błąd podczas dodawania miniatury do indeksu"; exit 1; }
-          git commit -m "Aktualizacja miniatury dla ostatniego wdrożenia" || { echo "Błąd podczas commitu miniatury"; exit 1; }
-          git push || { echo "Błąd podczas wysyłania miniatury do repozytorium"; exit 1; }
+          git add thumbnail.png
+          git commit -m "Dodanie miniatury"
+          git push
