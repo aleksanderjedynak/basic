@@ -195,3 +195,48 @@ jobs:
           cd "${{ github.event.inputs.repo_name }}"
           npm install -g vercel
           vercel deploy --prod --yes --token "${{ secrets.VERCEL_TOKEN }}"
+
+      - name: Generowanie miniatury
+        if: steps.check-vercel.outputs.proceed == 'true'
+        env:
+          PAGESPEED_API_KEY: ${{ secrets.PAGESPEED_API_KEY }}
+        run: |
+          REPO_NAME="${{ github.repository }}"
+          PROJECT_NAME=$(echo "$REPO_NAME" | cut -d'/' -f2)
+          DEPLOY_URL="https://${PROJECT_NAME}.vercel.app"
+          API_URL="https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=$DEPLOY_URL&key=$PAGESPEED_API_KEY"
+
+          echo "Rozpoczynam generowanie miniatury dla: $DEPLOY_URL"
+          THUMBNAIL=$(curl -s "$API_URL" | jq -r '.lighthouseResult.audits["final-screenshot"].details.data') || {
+            echo "Error: Nie udało się pobrać miniatury z PageSpeed Insights."
+            exit 1
+          }
+          if [[ $THUMBNAIL != null ]]; then
+            echo "$THUMBNAIL" | base64 -d > thumbnail.png || {
+              echo "Error: Nie udało się zapisać miniatury."
+              exit 1
+            }
+            echo "Miniatura została wygenerowana i zapisana jako thumbnail.png."
+          else
+            echo "Error: PageSpeed Insights nie zwrócił danych miniatury."
+            exit 1
+          fi
+
+      - name: Wypychanie miniatury do repozytorium
+        if: steps.check-vercel.outputs.proceed == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git add thumbnail.png || {
+            echo "Error: Nie udało się dodać miniatury do indeksu Git."
+            exit 1
+          }
+          git commit -m "Dodanie miniatury projektu" || {
+            echo "Error: Nie udało się zatwierdzić zmian w Git."
+            exit 1
+          }
+          git push origin main || {
+            echo "Error: Nie udało się wypchnąć zmian do repozytorium."
+            exit 1
+          }
+          echo "Miniatura została pomyślnie wypchnięta do repozytorium."
