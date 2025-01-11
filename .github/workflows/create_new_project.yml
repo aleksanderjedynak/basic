@@ -197,7 +197,6 @@ jobs:
           vercel deploy --prod --yes --token "${{ secrets.VERCEL_TOKEN }}"
 
       - name: Generowanie miniatury
-        if: steps.check-vercel.outputs.proceed == 'true'
         env:
           PAGESPEED_API_KEY: ${{ secrets.PAGESPEED_API_KEY }}
         run: |
@@ -223,7 +222,6 @@ jobs:
           fi
 
       - name: Wypychanie miniatury do repozytorium
-        if: steps.check-vercel.outputs.proceed == 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
