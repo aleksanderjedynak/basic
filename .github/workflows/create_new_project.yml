@@ -167,16 +167,28 @@ jobs:
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
-          curl -X POST https://api.vercel.com/v9/projects \
+          REPO_NAME="${{ github.event.inputs.repo_name }}"
+          OWNER="${{ github.actor }}"
+          API_RESPONSE=$(curl -s -o response.json -w "%{http_code}" \
+            -X POST https://api.vercel.com/v9/projects \
             -H "Authorization: Bearer $VERCEL_TOKEN" \
             -H "Content-Type: application/json" \
             -d '{
-              "name": "'"${{ github.event.inputs.repo_name }}"'",
+              "name": "'"$REPO_NAME"'",
               "gitRepository": {
                 "type": "github",
-                "repo": "'"${{ github.actor }}/{{ github.event.inputs.repo_name }}"'"
+                "repo": "'"$OWNER/$REPO_NAME"'"
               }
-            }'
+            }')
+
+          if [ "$API_RESPONSE" -ne 200 ]; then
+            echo "Error: Nie udało się połączyć repozytorium z Vercel. Szczegóły:"
+            cat response.json
+            exit 1
+          else
+            echo "Repozytorium zostało pomyślnie połączone z Vercel."
+          fi
+
 
       - name: Jednorazowe wdrożenie na Vercel
         run: |
