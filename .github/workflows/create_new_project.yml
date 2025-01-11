@@ -142,7 +142,7 @@ jobs:
           done
 
 
-      - name: Wywołanie workflow w nowym repozytorium
+      - name: Wywołanie workflow wdrożenia i generowania miniatury
         env:
           GITHUB_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
         run: |

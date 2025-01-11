@@ -1,11 +1,6 @@
 name: Wdrożenie projektu i generowanie miniatury
 
-description: Workflow wdrażający projekt na Vercel i generujący miniaturę strony przy użyciu Google PageSpeed Insights.
-
 on:
-  push:
-    branches:
-      - main
   repository_dispatch:
     types:
       - start-deploy-and-thumbnail
@@ -17,40 +12,36 @@ jobs:
     steps:
       - name: Pobranie kodu źródłowego
         uses: actions/checkout@v3
+
+      - name: Konfiguracja Git
         run: |
-          echo "Kod źródłowy repozytorium został pobrany."
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Instalacja Node.js
         uses: actions/setup-node@v3
         with:
           node-version: '16'
-        run: |
-          echo "Node.js w wersji 16 został zainstalowany."
 
       - name: Wdrożenie na Vercel
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
-          echo "Instalacja CLI Vercel..."
-          npm install -g vercel || { echo "Błąd podczas instalacji CLI Vercel"; exit 1; }
-          echo "Rozpoczynanie wdrażania na Vercel..."
-          vercel --prod || { echo "Błąd podczas wdrażania projektu na Vercel"; exit 1; }
+          npm install -g vercel
+          vercel --prod
 
   generate-thumbnail:
     needs: deploy-to-vercel
     runs-on: ubuntu-latest
 
     steps:
-      - name: Ponowne pobranie kodu źródłowego
+      - name: Pobranie kodu źródłowego
         uses: actions/checkout@v3
-        run: |
-          echo "Kod źródłowy został ponownie pobrany."
 
       - name: Konfiguracja Git
         run: |
-          echo "Konfiguracja użytkownika Gita..."
           git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com" || { echo "Błąd konfiguracji użytkownika Gita"; exit 1; }
+          git config user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Generowanie miniatury
         env:
@@ -58,21 +49,13 @@ jobs:
         run: |
           deployUrl="https://${{ github.repository }}.vercel.app"
           apiUrl="https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=$deployUrl&key=$PAGESPEED_API_KEY"
-          
-          echo "Rozpoczynanie pobierania miniatury dla $deployUrl..."
-          thumbnail=$(curl -s $apiUrl | jq -r '.lighthouseResult.audits["final-screenshot"].details.data') || { echo "Błąd podczas pobierania miniatury"; exit 1; }
-          if [[ $thumbnail != null ]]; then
-            echo "$thumbnail" | base64 -d > "thumbnail.png" || { echo "Błąd podczas zapisywania miniatury"; exit 1; }
-            echo "Miniatura została pomyślnie wygenerowana."
-          else
-            echo "Nie udało się wygenerować miniatury dla $deployUrl."
-          fi
+          thumbnail=$(curl -s $apiUrl | jq -r '.lighthouseResult.audits["final-screenshot"].details.data')
+          echo "$thumbnail" | base64 -d > "thumbnail.png"
 
-      - name: Commit i wysyłka miniatury
+      - name: Commit i push miniatury
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "Dodawanie miniatury do repozytorium..."
-          git add thumbnail.png || { echo "Błąd podczas dodawania miniatury do indeksu"; exit 1; }
-          git commit -m "Aktualizacja miniatury dla ostatniego wdrożenia" || { echo "Błąd podczas commitu miniatury"; exit 1; }
-          git push || { echo "Błąd podczas wysyłania miniatury do repozytorium"; exit 1; }
+          git add thumbnail.png
+          git commit -m "Aktualizacja miniatury dla ostatniego wdrożenia"
+          git push
