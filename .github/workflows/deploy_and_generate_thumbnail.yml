@@ -27,6 +27,11 @@ jobs:
         run: |
           echo "VERCEL_TOKEN istnieje: ${VERCEL_TOKEN:+yes}"
 
+      - name: Opóźnienie przed wdrożeniem
+        run: |
+          echo "Oczekiwanie 1 minuty na stabilizację środowiska..."
+          sleep 60
+
       - name: Wdrożenie na Vercel
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
