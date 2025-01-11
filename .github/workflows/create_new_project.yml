@@ -137,20 +137,22 @@ jobs:
           echo "Pełna odpowiedź API Google PageSpeed Insights:"
           echo "$RESPONSE" | jq .
 
-          THUMBNAIL=$(echo "$RESPONSE" | jq -r '.lighthouseResult.audits["final-screenshot"].details.data // empty')
+          # Wyciągnięcie pierwszej miniatury z 'screenshot-thumbnails'
+          THUMBNAIL=$(echo "$RESPONSE" | jq -r '.lighthouseResult.audits["screenshot-thumbnails"].details.items[0].data // empty')
 
           # Sprawdzenie, czy dane miniatury są dostępne
           if [ -z "$THUMBNAIL" ]; then
-            echo "Error: API Google PageSpeed Insights nie zwróciło danych miniatury."
+            echo "Error: API Google PageSpeed Insights nie zwróciło danych miniatury w screenshot-thumbnails."
             exit 0
           fi
 
           # Próba zapisania miniatury
-          echo "$THUMBNAIL" | base64 -d > thumbnail.png || {
+          echo "$THUMBNAIL" | base64 -d > thumbnail.jpg || {
             echo "Error: Nie udało się zapisać miniatury. Sprawdź dane zwrócone przez API."
             exit 1
           }
-          echo "Miniatura została wygenerowana i zapisana jako thumbnail.png."
+          echo "Miniatura została wygenerowana i zapisana jako thumbnail.jpg."
+
 
 
       - name: Wypychanie miniatury do repozytorium
