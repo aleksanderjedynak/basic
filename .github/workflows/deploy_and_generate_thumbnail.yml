@@ -21,14 +21,16 @@ jobs:
       - name: Instalacja Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '16'
+          node-version: '20'
 
       - name: Wdrożenie na Vercel
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
-          npm install -g vercel
-          vercel --prod
+          echo "Instalacja CLI Vercel..."
+          npm install -g vercel || { echo "Błąd podczas instalacji CLI Vercel"; exit 1; }
+          echo "Rozpoczynanie wdrażania na Vercel..."
+          vercel deploy --prod --yes || { echo "Błąd podczas wdrażania projektu na Vercel"; exit 1; }
 
   generate-thumbnail:
     needs: deploy-to-vercel
@@ -49,13 +51,23 @@ jobs:
         run: |
           deployUrl="https://${{ github.repository }}.vercel.app"
           apiUrl="https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=$deployUrl&key=$PAGESPEED_API_KEY"
-          thumbnail=$(curl -s $apiUrl | jq -r '.lighthouseResult.audits["final-screenshot"].details.data')
-          echo "$thumbnail" | base64 -d > "thumbnail.png"
+
+          echo "Rozpoczynanie pobierania miniatury dla $deployUrl..."
+          thumbnail=$(curl -s $apiUrl | jq -r '.lighthouseResult.audits["final-screenshot"].details.data') || { echo "Błąd podczas pobierania miniatury"; exit 1; }
+          
+          if [[ $thumbnail != null ]]; then
+            echo "$thumbnail" | base64 -d > "thumbnail.png" || { echo "Błąd podczas zapisywania miniatury"; exit 1; }
+            echo "Miniatura została pomyślnie wygenerowana."
+          else
+            echo "Nie udało się wygenerować miniatury dla $deployUrl."
+            exit 1
+          fi
 
       - name: Commit i push miniatury
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          git add thumbnail.png
-          git commit -m "Aktualizacja miniatury dla ostatniego wdrożenia"
-          git push
+          echo "Dodawanie miniatury do repozytorium..."
+          git add thumbnail.png || { echo "Błąd podczas dodawania miniatury do indeksu"; exit 1; }
+          git commit -m "Aktualizacja miniatury dla ostatniego wdrożenia" || { echo "Błąd podczas commitu miniatury"; exit 1; }
+          git push || { echo "Błąd podczas wysyłania miniatury do repozytorium"; exit 1; }
