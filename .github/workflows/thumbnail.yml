@@ -1,4 +1,4 @@
-name: Generate Thumbnail
+name: Generate Thumbnail and Push to Repository
 
 on:
   push:
@@ -10,22 +10,24 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Sprawdzenie, czy repozytorium jest połączone z Vercel
+      # 1. Sprawdzenie połączenia z Vercel
       - name: Sprawdzenie połączenia z Vercel
         id: check-vercel
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
-          REPO_NAME=$(basename -s .git `git config --get remote.origin.url`)
+          REPO_NAME="${{ github.repository }}"
+          PROJECT_NAME=$(echo "$REPO_NAME" | cut -d'/' -f2) # Wyciągamy tylko nazwę repozytorium
+
           RESPONSE=$(curl -s -o response.json -w "%{http_code}" \
-            -X GET "https://api.vercel.com/v9/projects/$REPO_NAME" \
+            -X GET "https://api.vercel.com/v9/projects/$PROJECT_NAME" \
             -H "Authorization: Bearer $VERCEL_TOKEN")
 
           if [ "$RESPONSE" -ne 200 ]; then
-            echo "Projekt '$REPO_NAME' nie jest połączony z Vercel. Nic do robienia."
+            echo "Projekt '$PROJECT_NAME' nie jest połączony z Vercel. Nic do robienia."
             echo "::set-output name=proceed::false"
           else
-            echo "Projekt '$REPO_NAME' jest połączony z Vercel. Kontynuuję workflow."
+            echo "Projekt '$PROJECT_NAME' jest połączony z Vercel. Kontynuuję workflow."
             echo "::set-output name=proceed::true"
           fi
 
@@ -35,8 +37,9 @@ jobs:
         env:
           PAGESPEED_API_KEY: ${{ secrets.PAGESPEED_API_KEY }}
         run: |
-          REPO_NAME=$(basename -s .git `git config --get remote.origin.url`)
-          DEPLOY_URL="https://${REPO_NAME}.vercel.app"
+          REPO_NAME="${{ github.repository }}"
+          PROJECT_NAME=$(echo "$REPO_NAME" | cut -d'/' -f2)
+          DEPLOY_URL="https://${PROJECT_NAME}.vercel.app"
           API_URL="https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=$DEPLOY_URL&key=$PAGESPEED_API_KEY"
 
           echo "Rozpoczynam generowanie miniatury dla: $DEPLOY_URL"
