@@ -5,8 +5,8 @@ on:
     inputs:
       repo_name:
         description: "Nazwa nowego repozytorium"
-        required: true # Wymaga wprowadzenia nazwy
-        default: "my-new-repo" # Domyślna nazwa repozytorium (opcjonalne)
+        required: true
+        default: "my-new-repo"
 
 jobs:
   create-repo:
@@ -101,7 +101,7 @@ jobs:
           git branch -M main
           git push -u origin main
 
-      - name: Kopia Secrets do nowego repozytorium {{ github.event.inputs.repo_name }}
+      - name: Kopia Secrets do nowego repozytorium
         env:
           GITHUB_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
         run: |
@@ -141,6 +141,27 @@ jobs:
               -d "{\"encrypted_value\":\"$SECRET_VALUE\",\"key_id\":\"$PUBLIC_KEY_ID\"}"
           done
 
+      - name: Testowanie sekretów w nowym repozytorium
+        env:
+          GITHUB_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+        run: |
+          NEW_REPO_NAME="${{ github.event.inputs.repo_name }}"
+          OWNER="${{ github.actor }}"
+          echo "Testowanie sekretów w nowym repozytorium $NEW_REPO_NAME..."
+
+          SECRETS=("VERCEL_TOKEN" "PAGESPEED_API_KEY" "PERSONAL_ACCESS_TOKEN")
+          for SECRET in "${SECRETS[@]}"; do
+            SECRET_RESPONSE=$(curl -s -H "Authorization: Bearer $GITHUB_TOKEN" \
+              -H "Accept: application/vnd.github.v3+json" \
+              https://api.github.com/repos/$OWNER/$NEW_REPO_NAME/actions/secrets/$SECRET)
+
+            if echo "$SECRET_RESPONSE" | jq -e '.name' &>/dev/null; then
+              echo "Sekret $SECRET istnieje w repozytorium $NEW_REPO_NAME."
+            else
+              echo "Error: Sekret $SECRET nie został poprawnie skopiowany."
+              exit 1
+            fi
+          done
 
       - name: Wywołanie workflow wdrożenia i generowania miniatury
         env:
