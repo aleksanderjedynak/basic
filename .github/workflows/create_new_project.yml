@@ -77,8 +77,8 @@ jobs:
       - name: Tworzenie repozytorium na GitHub
         env:
           GITHUB_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
-          REPO_NAME: ${{ github.event.inputs.repo_name }}
         run: |
+          REPO_NAME="${{ github.event.inputs.repo_name }}"
           response=$(curl -s -o response.json -w "%{http_code}" \
             -H "Authorization: token $GITHUB_TOKEN" \
             -d "{\"name\":\"$REPO_NAME\"}" \
@@ -101,130 +101,58 @@ jobs:
           git branch -M main
           git push -u origin main
 
-      - name: Kopia Secrets do nowego repozytorium
-        env:
-          GITHUB_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
-        run: |
-          NEW_REPO_NAME="${{ github.event.inputs.repo_name }}"
-          OWNER="${{ github.actor }}"
-
-          # Pobierz klucz publiczny nowego repozytorium
-          PUBLIC_KEY=$(curl -s -H "Authorization: Bearer $GITHUB_TOKEN" \
-            -H "Accept: application/vnd.github.v3+json" \
-            https://api.github.com/repos/$OWNER/$NEW_REPO_NAME/actions/secrets/public-key)
-
-          PUBLIC_KEY_ID=$(echo "$PUBLIC_KEY" | jq -r '.key_id')
-          PUBLIC_KEY_VALUE=$(echo "$PUBLIC_KEY" | jq -r '.key')
-
-          if [ -z "$PUBLIC_KEY_ID" ] || [ -z "$PUBLIC_KEY_VALUE" ]; then
-            echo "Error: Nie udało się pobrać klucza publicznego dla repozytorium $NEW_REPO_NAME."
-            exit 1
-          fi
-
-          # Kopiuj sekrety z repozytorium basic do nowego repozytorium
-          SECRETS=("VERCEL_TOKEN" "PAGESPEED_API_KEY" "PERSONAL_ACCESS_TOKEN")
-          for SECRET in "${SECRETS[@]}"; do
-            SECRET_VALUE=$(curl -s -H "Authorization: Bearer $GITHUB_TOKEN" \
-              -H "Accept: application/vnd.github.v3+json" \
-              https://api.github.com/repos/$OWNER/basic/actions/secrets/$SECRET \
-              | jq -r '.encrypted_value')
-
-            if [ -z "$SECRET_VALUE" ]; then
-              echo "Error: Nie udało się pobrać sekretu $SECRET z repozytorium basic."
-              exit 1
-            fi
-
-            # Prześlij sekret do nowego repozytorium
-            curl -X PUT -H "Authorization: Bearer $GITHUB_TOKEN" \
-              -H "Accept: application/vnd.github.v3+json" \
-              https://api.github.com/repos/$OWNER/$NEW_REPO_NAME/actions/secrets/$SECRET \
-              -d "{\"encrypted_value\":\"$SECRET_VALUE\",\"key_id\":\"$PUBLIC_KEY_ID\"}"
-          done
-
-      - name: Testowanie sekretów w nowym repozytorium
-        env:
-          GITHUB_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
-        run: |
-          NEW_REPO_NAME="${{ github.event.inputs.repo_name }}"
-          OWNER="${{ github.actor }}"
-          echo "Testowanie sekretów w nowym repozytorium $NEW_REPO_NAME..."
-
-          SECRETS=("VERCEL_TOKEN" "PAGESPEED_API_KEY" "PERSONAL_ACCESS_TOKEN")
-          for SECRET in "${SECRETS[@]}"; do
-            SECRET_RESPONSE=$(curl -s -H "Authorization: Bearer $GITHUB_TOKEN" \
-              -H "Accept: application/vnd.github.v3+json" \
-              https://api.github.com/repos/$OWNER/$NEW_REPO_NAME/actions/secrets/$SECRET)
-
-            if echo "$SECRET_RESPONSE" | jq -e '.name' &>/dev/null; then
-              echo "Sekret $SECRET istnieje w repozytorium $NEW_REPO_NAME."
-            else
-              echo "Error: Sekret $SECRET nie został poprawnie skopiowany."
-              exit 1
-            fi
-          done
-
-      - name: Połączenie repozytorium z Vercel
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-        run: |
-          REPO_NAME="${{ github.event.inputs.repo_name }}"
-          OWNER="${{ github.actor }}"
-          API_RESPONSE=$(curl -s -o response.json -w "%{http_code}" \
-            -X POST https://api.vercel.com/v9/projects \
-            -H "Authorization: Bearer $VERCEL_TOKEN" \
-            -H "Content-Type: application/json" \
-            -d '{
-              "name": "'"$REPO_NAME"'",
-              "gitRepository": {
-                "type": "github",
-                "repo": "'"$OWNER/$REPO_NAME"'"
-              }
-            }')
-
-          if [ "$API_RESPONSE" -ne 200 ]; then
-            echo "Error: Nie udało się połączyć repozytorium z Vercel. Szczegóły:"
-            cat response.json
-            exit 1
-          else
-            echo "Repozytorium zostało pomyślnie połączone z Vercel."
-          fi
-
-
       - name: Jednorazowe wdrożenie na Vercel
         run: |
           cd "${{ github.event.inputs.repo_name }}"
           npm install -g vercel
           vercel deploy --prod --yes --token "${{ secrets.VERCEL_TOKEN }}"
 
+      - name: Timeout po wdrożeniu na Vercel
+        run: |
+          echo "Oczekiwanie 1 minuty, aby upewnić się, że strona jest dostępna..."
+          sleep 60
+
+      - name: Sprawdzenie dostępności strony
+        run: |
+          DEPLOY_URL="https://${{ github.event.inputs.repo_name }}.vercel.app"
+          echo "Sprawdzanie dostępności strony pod adresem: $DEPLOY_URL"
+          HTTP_STATUS=$(curl -o /dev/null -s -w "%{http_code}" $DEPLOY_URL)
+          if [ "$HTTP_STATUS" -ne 200 ]; then
+            echo "Strona nie jest dostępna (status: $HTTP_STATUS). Miniatura nie zostanie wygenerowana."
+            exit 0
+          fi
+          echo "Strona jest dostępna. Kontynuuję generowanie miniatury."
+
       - name: Generowanie miniatury
         env:
           PAGESPEED_API_KEY: ${{ secrets.PAGESPEED_API_KEY }}
         run: |
-          REPO_NAME="${{ github.repository }}"
-          PROJECT_NAME=$(echo "$REPO_NAME" | cut -d'/' -f2)
-          DEPLOY_URL="https://${PROJECT_NAME}.vercel.app"
+          DEPLOY_URL="https://${{ github.event.inputs.repo_name }}.vercel.app"
           API_URL="https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=$DEPLOY_URL&key=$PAGESPEED_API_KEY"
 
           echo "Rozpoczynam generowanie miniatury dla: $DEPLOY_URL"
-          THUMBNAIL=$(curl -s "$API_URL" | jq -r '.lighthouseResult.audits["final-screenshot"].details.data') || {
-            echo "Error: Nie udało się pobrać miniatury z PageSpeed Insights."
+          RESPONSE=$(curl -s "$API_URL")
+          THUMBNAIL=$(echo "$RESPONSE" | jq -r '.lighthouseResult.audits["final-screenshot"].details.data' || echo "null")
+
+          if [ "$THUMBNAIL" == "null" ] || [ -z "$THUMBNAIL" ]; then
+            echo "Error: API Google PageSpeed Insights nie zwróciło danych miniatury."
+            echo "Pełna odpowiedź API:"
+            echo "$RESPONSE" | jq .
+            exit 0
+          fi
+
+          echo "$THUMBNAIL" | base64 -d > thumbnail.png || {
+            echo "Error: Nie udało się zapisać miniatury."
             exit 1
           }
-          if [[ $THUMBNAIL != null ]]; then
-            echo "$THUMBNAIL" | base64 -d > thumbnail.png || {
-              echo "Error: Nie udało się zapisać miniatury."
-              exit 1
-            }
-            echo "Miniatura została wygenerowana i zapisana jako thumbnail.png."
-          else
-            echo "Error: PageSpeed Insights nie zwrócił danych miniatury."
-            exit 1
-          fi
+          echo "Miniatura została wygenerowana i zapisana jako thumbnail.png."
 
       - name: Wypychanie miniatury do repozytorium
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
           git add thumbnail.png || {
             echo "Error: Nie udało się dodać miniatury do indeksu Git."
             exit 1
