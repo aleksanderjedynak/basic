@@ -100,3 +100,27 @@ jobs:
           git remote add origin https://github.com/${{ github.actor }}/"$REPO_NAME".git
           git branch -M main
           git push -u origin main
+
+      - name: Copy Secrets to New Repository
+        env:
+          GITHUB_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+        run: |
+          NEW_REPO_NAME="${{ github.event.inputs.repo_name }}"
+
+          SECRETS=("VERCEL_TOKEN" "PAGESPEED_API_KEY")
+          for SECRET in "${SECRETS[@]}"; do
+            SECRET_VALUE=$(curl -s -H "Authorization: Bearer $GITHUB_TOKEN" \
+              -H "Accept: application/vnd.github.v3+json" \
+              https://api.github.com/repos/${{ github.actor }}/basic/actions/secrets/$SECRET \
+              | jq -r '.encrypted_value')
+
+            SECRET_KEY_ID=$(curl -s -H "Authorization: Bearer $GITHUB_TOKEN" \
+              -H "Accept: application/vnd.github.v3+json" \
+              https://api.github.com/repos/${{ github.actor }}/basic/actions/secrets/$SECRET \
+              | jq -r '.key_id')
+
+            curl -X PUT -H "Authorization: Bearer $GITHUB_TOKEN" \
+              -H "Accept: application/vnd.github.v3+json" \
+              https://api.github.com/repos/${{ github.actor }}/$NEW_REPO_NAME/actions/secrets/$SECRET \
+              -d '{"encrypted_value":"'$SECRET_VALUE'","key_id":"'$SECRET_KEY_ID'"}'
+          done
