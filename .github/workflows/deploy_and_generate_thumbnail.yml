@@ -21,7 +21,7 @@ jobs:
       - name: Instalacja Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '20'
+          node-version: '18'
 
       - name: Wdrożenie na Vercel
         env:
@@ -30,7 +30,7 @@ jobs:
           echo "Instalacja CLI Vercel..."
           npm install -g vercel || { echo "Błąd podczas instalacji CLI Vercel"; exit 1; }
           echo "Rozpoczynanie wdrażania na Vercel..."
-          vercel deploy --prod --yes || { echo "Błąd podczas wdrażania projektu na Vercel"; exit 1; }
+          vercel deploy --prod --yes --token $VERCEL_TOKEN || { echo "Błąd podczas wdrażania projektu na Vercel"; exit 1; }
 
   generate-thumbnail:
     needs: deploy-to-vercel
