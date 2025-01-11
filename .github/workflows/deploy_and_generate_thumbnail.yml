@@ -6,6 +6,9 @@ on:
   push:
     branches:
       - main
+  repository_dispatch:
+    types:
+      - start-deploy-and-thumbnail
 
 jobs:
   deploy-to-vercel:
