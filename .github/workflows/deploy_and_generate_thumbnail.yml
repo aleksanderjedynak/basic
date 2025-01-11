@@ -23,10 +23,15 @@ jobs:
         with:
           node-version: '18'
 
+      - name: Debugowanie zmiennych środowiskowych
+        run: |
+          echo "VERCEL_TOKEN istnieje: ${VERCEL_TOKEN:+yes}"
+
       - name: Wdrożenie na Vercel
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
+          echo "Token Vercel: ${VERCEL_TOKEN:0:5}****** (ukryty dla bezpieczeństwa)"
           echo "Instalacja CLI Vercel..."
           npm install -g vercel || { echo "Błąd podczas instalacji CLI Vercel"; exit 1; }
           echo "Rozpoczynanie wdrażania na Vercel..."
