@@ -106,21 +106,38 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
         run: |
           NEW_REPO_NAME="${{ github.event.inputs.repo_name }}"
+          OWNER="${{ github.actor }}"
 
+          # Pobierz klucz publiczny nowego repozytorium
+          PUBLIC_KEY=$(curl -s -H "Authorization: Bearer $GITHUB_TOKEN" \
+            -H "Accept: application/vnd.github.v3+json" \
+            https://api.github.com/repos/$OWNER/$NEW_REPO_NAME/actions/secrets/public-key)
+
+          PUBLIC_KEY_ID=$(echo "$PUBLIC_KEY" | jq -r '.key_id')
+          PUBLIC_KEY_VALUE=$(echo "$PUBLIC_KEY" | jq -r '.key')
+
+          if [ -z "$PUBLIC_KEY_ID" ] || [ -z "$PUBLIC_KEY_VALUE" ]; then
+            echo "Error: Nie udało się pobrać klucza publicznego dla repozytorium $NEW_REPO_NAME."
+            exit 1
+          fi
+
+          # Kopiuj sekrety z repozytorium basic do nowego repozytorium
           SECRETS=("VERCEL_TOKEN" "PAGESPEED_API_KEY")
           for SECRET in "${SECRETS[@]}"; do
             SECRET_VALUE=$(curl -s -H "Authorization: Bearer $GITHUB_TOKEN" \
               -H "Accept: application/vnd.github.v3+json" \
-              https://api.github.com/repos/${{ github.actor }}/basic/actions/secrets/$SECRET \
+              https://api.github.com/repos/$OWNER/basic/actions/secrets/$SECRET \
               | jq -r '.encrypted_value')
 
-            SECRET_KEY_ID=$(curl -s -H "Authorization: Bearer $GITHUB_TOKEN" \
-              -H "Accept: application/vnd.github.v3+json" \
-              https://api.github.com/repos/${{ github.actor }}/basic/actions/secrets/$SECRET \
-              | jq -r '.key_id')
+            if [ -z "$SECRET_VALUE" ]; then
+              echo "Error: Nie udało się pobrać sekretu $SECRET z repozytorium basic."
+              exit 1
+            fi
 
+            # Prześlij sekret do nowego repozytorium
             curl -X PUT -H "Authorization: Bearer $GITHUB_TOKEN" \
               -H "Accept: application/vnd.github.v3+json" \
-              https://api.github.com/repos/${{ github.actor }}/$NEW_REPO_NAME/actions/secrets/$SECRET \
-              -d '{"encrypted_value":"'$SECRET_VALUE'","key_id":"'$SECRET_KEY_ID'"}'
+              https://api.github.com/repos/$OWNER/$NEW_REPO_NAME/actions/secrets/$SECRET \
+              -d "{\"encrypted_value\":\"$SECRET_VALUE\",\"key_id\":\"$PUBLIC_KEY_ID\"}"
           done
+
