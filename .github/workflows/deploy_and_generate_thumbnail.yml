@@ -1,64 +1,64 @@
-name: Deploy to Vercel and Generate Thumbnail
-
-on:
-  repository_dispatch:
-    types:
-      - start-deploy-and-thumbnail
-
-jobs:
-  deploy-to-vercel:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Pobranie kodu źródłowego
-        uses: actions/checkout@v3
-
-      - name: Konfiguracja Git
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-      - name: Debugowanie sekretów
-        run: |
-          echo "VERCEL_TOKEN: ${VERCEL_TOKEN:+OK}"
-          echo "PAGESPEED_API_KEY: ${PAGESPEED_API_KEY:+OK}"
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          PAGESPEED_API_KEY: ${{ secrets.PAGESPEED_API_KEY }}
-
-      - name: Instalacja Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '18'
-
-      - name: Instalacja CLI Vercel
-        run: |
-          npm install -g vercel
-
-      - name: Wdrożenie na Vercel
-        run: |
-          if [[ -z "$VERCEL_TOKEN" ]]; then
-            echo "Błąd: VERCEL_TOKEN nie jest ustawiony."
-            exit 1
-          fi
-          echo "VERCEL_TOKEN został ustawiony: ${VERCEL_TOKEN:0:5}****** (ukryty dla bezpieczeństwa)"
-          vercel deploy --prod --yes --token "$VERCEL_TOKEN"
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-
-      - name: Generowanie miniatury
-        run: |
-          deployUrl="https://${{ github.repository }}.vercel.app"
-          apiUrl="https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=$deployUrl&key=$PAGESPEED_API_KEY"
-          thumbnail=$(curl -s $apiUrl | jq -r '.lighthouseResult.audits["final-screenshot"].details.data')
-          echo "$thumbnail" | base64 -d > thumbnail.png
-        env:
-          PAGESPEED_API_KEY: ${{ secrets.PAGESPEED_API_KEY }}
-
-      - name: Commit i push miniatury
-        run: |
-          git add thumbnail.png
-          git commit -m "Dodanie miniatury"
-          git push
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+#name: Deploy to Vercel and Generate Thumbnail
+#
+#on:
+#  repository_dispatch:
+#    types:
+#      - start-deploy-and-thumbnail
+#
+#jobs:
+#  deploy-to-vercel:
+#    runs-on: ubuntu-latest
+#
+#    steps:
+#      - name: Pobranie kodu źródłowego
+#        uses: actions/checkout@v3
+#
+#      - name: Konfiguracja Git
+#        run: |
+#          git config user.name "github-actions[bot]"
+#          git config user.email "github-actions[bot]@users.noreply.github.com"
+#
+#      - name: Debugowanie sekretów
+#        run: |
+#          echo "VERCEL_TOKEN: ${VERCEL_TOKEN:+OK}"
+#          echo "PAGESPEED_API_KEY: ${PAGESPEED_API_KEY:+OK}"
+#        env:
+#          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+#          PAGESPEED_API_KEY: ${{ secrets.PAGESPEED_API_KEY }}
+#
+#      - name: Instalacja Node.js
+#        uses: actions/setup-node@v3
+#        with:
+#          node-version: '18'
+#
+#      - name: Instalacja CLI Vercel
+#        run: |
+#          npm install -g vercel
+#
+#      - name: Wdrożenie na Vercel
+#        run: |
+#          if [[ -z "$VERCEL_TOKEN" ]]; then
+#            echo "Błąd: VERCEL_TOKEN nie jest ustawiony."
+#            exit 1
+#          fi
+#          echo "VERCEL_TOKEN został ustawiony: ${VERCEL_TOKEN:0:5}****** (ukryty dla bezpieczeństwa)"
+#          vercel deploy --prod --yes --token "$VERCEL_TOKEN"
+#        env:
+#          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+#
+#      - name: Generowanie miniatury
+#        run: |
+#          deployUrl="https://${{ github.repository }}.vercel.app"
+#          apiUrl="https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=$deployUrl&key=$PAGESPEED_API_KEY"
+#          thumbnail=$(curl -s $apiUrl | jq -r '.lighthouseResult.audits["final-screenshot"].details.data')
+#          echo "$thumbnail" | base64 -d > thumbnail.png
+#        env:
+#          PAGESPEED_API_KEY: ${{ secrets.PAGESPEED_API_KEY }}
+#
+#      - name: Commit i push miniatury
+#        run: |
+#          git add thumbnail.png
+#          git commit -m "Dodanie miniatury"
+#          git push
+#        env:
+#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
