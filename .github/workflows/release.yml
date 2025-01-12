@@ -1,4 +1,4 @@
-name: Release on main push
+name: Podbijanie wersji
 
 on:
   push:
