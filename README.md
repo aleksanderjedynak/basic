@@ -62,6 +62,9 @@ Taka opcja moze sie przydac w perwnych okolicznosciach.
 # Plany na rozbudowe:
 1. Dodanie testow
 
+# Plany na rozbudowe:
+1. Dodanie testow
+
 
 # Testowanie lokalnie 
 
