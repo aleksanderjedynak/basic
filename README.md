@@ -58,3 +58,11 @@ Taka opcja moze sie przydac w perwnych okolicznosciach.
   vercel deploy --prod --yes
 ```
 8. Masz setup projektu i mozesz sobie dalej pracowac :) 
+
+
+# Testowanie lokalnie 
+
+1. musisz miec zainstalowane Vercel CLI i wystarczy odpalic komende
+```bash
+   vercel dev
+```
